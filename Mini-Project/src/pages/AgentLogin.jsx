@@ -75,11 +75,11 @@ export default function AgentLogin() {
             <input
               id="email"
               type="email"
-              placeholder="amit@warehouse.com"
+              placeholder="Enter your email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               required
-              autoComplete="email"
+              autoComplete="off"
               disabled={loading}
             />
           </div>
@@ -89,11 +89,11 @@ export default function AgentLogin() {
             <input
               id="password"
               type="password"
-              placeholder="••••••••"
+              placeholder="Enter your password"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               required
-              autoComplete="current-password"
+              autoComplete="new-password"
               disabled={loading}
             />
           </div>

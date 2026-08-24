@@ -108,6 +108,7 @@ A confirmation email has been sent. Please verify your email to complete registr
             placeholder="Email Address"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
+            autoComplete="off"
             required
           />
           <input
@@ -116,6 +117,7 @@ A confirmation email has been sent. Please verify your email to complete registr
             placeholder="Password"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
+            autoComplete="new-password"
             required
           />
           

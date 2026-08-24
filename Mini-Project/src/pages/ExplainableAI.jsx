@@ -632,7 +632,8 @@ export default function ExplainableAI() {
 
                     <div className="form-group">
                       <label>Email</label>
-                      <input type="email" className="xai-ask-input" placeholder="admin@warehouse.com"
+                      <input type="email" className="xai-ask-input" placeholder="Enter your email"
+                        autoComplete="off"
                         value={companyMode === 'login' ? loginForm.email : companyRegisterForm.email}
                         onChange={e => companyMode === 'login'
                           ? setLoginForm(f => ({ ...f, email: e.target.value }))
@@ -641,7 +642,8 @@ export default function ExplainableAI() {
                     </div>
                     <div className="form-group">
                       <label>Password</label>
-                      <input type="password" className="xai-ask-input" placeholder="••••••••"
+                      <input type="password" className="xai-ask-input" placeholder="Enter your password"
+                        autoComplete="new-password"
                         value={companyMode === 'login' ? loginForm.password : companyRegisterForm.password}
                         onChange={e => companyMode === 'login'
                           ? setLoginForm(f => ({ ...f, password: e.target.value }))

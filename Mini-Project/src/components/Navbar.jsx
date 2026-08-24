@@ -45,7 +45,7 @@ export default function Navbar() {
   const navLinks = [
     ...baseNavLinks,
     ...(isLoggedIn
-      ? [{ }]
+      ? []
       : [{ path: '/login', label: 'Login' }]),
   ]
 

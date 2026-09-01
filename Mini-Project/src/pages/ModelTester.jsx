@@ -14,27 +14,27 @@ const SAMPLE_DATASETS = [
     badge: '✅ With Labels',
     badgeClass: 'badge-with-labels',
     filename: 'test_electronics.csv',
-    content: `product_id,inventory_level,warehouse_location,aisle_number,picking_time,reorder_point,lead_time_days,unit_price,category,day_of_week,month,is_weekend,rolling_avg_7d,demand
-P001,152,Zone-E,15,6.76,132,7,367.34,Electronics,6,1,1,89.0,89
-P001,101,Zone-E,15,17.24,132,7,367.34,Electronics,0,1,0,81.5,74
-P002,54,Zone-C,8,14.34,98,5,299.99,Electronics,1,2,0,76.67,67
-P002,210,Zone-A,8,9.12,98,5,299.99,Electronics,2,2,0,74.5,71
-P003,88,Zone-B,12,11.45,75,4,450.00,Electronics,3,3,0,77.2,82
-P003,165,Zone-D,12,8.33,75,4,450.00,Electronics,4,3,0,78.1,79
-P004,42,Zone-E,6,15.67,60,3,189.99,Electronics,5,4,1,75.4,68
-P004,198,Zone-A,6,7.89,60,3,189.99,Electronics,6,4,1,73.8,85
-P005,75,Zone-C,10,12.11,110,6,520.00,Electronics,0,5,0,80.3,77
-P005,130,Zone-B,10,9.56,110,6,520.00,Electronics,1,5,0,79.1,81
-P006,55,Zone-D,3,14.22,85,5,275.00,Electronics,2,6,0,76.5,73
-P006,180,Zone-E,3,8.44,85,5,275.00,Electronics,3,6,0,77.8,88
-P007,95,Zone-A,7,11.33,90,4,399.99,Electronics,4,7,0,82.1,84
-P007,145,Zone-C,7,7.67,90,4,399.99,Electronics,5,7,1,80.6,79
-P008,68,Zone-B,11,13.78,70,3,159.99,Electronics,6,8,1,78.9,91
-P008,220,Zone-D,11,6.92,70,3,159.99,Electronics,0,8,0,79.4,76
-P009,112,Zone-E,9,10.45,95,5,335.00,Electronics,1,9,0,81.7,83
-P009,58,Zone-A,9,15.11,95,5,335.00,Electronics,2,9,0,80.2,70
-P010,175,Zone-C,4,8.78,80,4,245.00,Electronics,3,10,0,79.8,86
-P010,82,Zone-B,4,12.34,80,4,245.00,Electronics,4,10,0,78.5,74`,
+    content: `product_id,inventory_level,warehouse_location,aisle_number,picking_time,reorder_point,lead_time_days,unit_price,category,day_of_week,month,is_weekend,demand
+P002,719,Zone-A,2,14.87,114,5,45.45,Electronics,6,1,1,94
+P002,0,Zone-A,2,6.93,114,5,45.45,Electronics,2,2,0,85
+P002,0,Zone-A,2,3.4,114,5,45.45,Electronics,2,3,0,86
+P002,0,Zone-A,2,6.06,114,5,45.45,Electronics,5,4,1,100
+P004,320,Zone-C,6,16.8,73,6,132.13,Electronics,6,1,1,109
+P004,0,Zone-C,6,4.68,73,6,132.13,Electronics,2,2,0,97
+P004,0,Zone-C,6,9.59,73,6,132.13,Electronics,2,3,0,101
+P004,0,Zone-C,6,9.84,73,6,132.13,Electronics,5,4,1,120
+P005,552,Zone-E,12,14.5,123,7,15.88,Electronics,6,1,1,102
+P005,0,Zone-E,12,10.21,123,7,15.88,Electronics,0,5,0,85
+P006,558,Zone-B,7,7.52,128,4,34.51,Electronics,6,1,1,77
+P006,0,Zone-B,7,9.3,128,4,34.51,Electronics,3,6,0,93
+P010,536,Zone-B,1,3.96,133,7,230.56,Electronics,6,1,1,57
+P010,0,Zone-B,1,14.94,133,7,230.56,Electronics,1,8,0,82
+P013,820,Zone-E,11,7.52,107,9,422.0,Electronics,6,1,1,25
+P013,0,Zone-E,11,14.24,107,9,422.0,Electronics,4,9,0,61
+P017,239,Zone-D,6,12.93,50,1,306.69,Electronics,6,1,1,65
+P017,0,Zone-D,6,15.06,50,1,306.69,Electronics,6,10,1,89
+P022,232,Zone-B,11,6.41,61,6,48.29,Electronics,6,1,1,102
+P025,480,Zone-B,6,9.58,124,6,76.95,Electronics,6,1,1,59`,
   },
   {
     name: 'Grocery Dataset',
@@ -42,27 +42,27 @@ P010,82,Zone-B,4,12.34,80,4,245.00,Electronics,4,10,0,78.5,74`,
     badge: '✅ With Labels',
     badgeClass: 'badge-with-labels',
     filename: 'test_grocery.csv',
-    content: `product_id,inventory_level,warehouse_location,aisle_number,picking_time,reorder_point,lead_time_days,unit_price,category,day_of_week,month,is_weekend,rolling_avg_7d,demand
-P011,320,Zone-A,2,5.12,180,2,18.50,Grocery,0,1,0,95.3,98
-P011,180,Zone-B,2,6.45,180,2,18.50,Grocery,1,1,0,96.1,92
-P012,410,Zone-C,5,4.78,220,1,12.99,Grocery,2,2,0,94.8,101
-P012,250,Zone-A,5,5.33,220,1,12.99,Grocery,3,2,0,95.6,97
-P013,195,Zone-D,1,6.11,160,3,24.50,Grocery,4,3,0,93.2,88
-P013,365,Zone-E,1,4.56,160,3,24.50,Grocery,5,3,1,94.5,103
-P014,280,Zone-B,3,5.78,190,2,9.99,Grocery,6,4,1,96.7,108
-P014,145,Zone-C,3,6.89,190,2,9.99,Grocery,0,4,0,95.8,95
-P015,490,Zone-A,4,4.23,240,1,15.75,Grocery,1,5,0,97.2,104
-P015,310,Zone-D,4,5.67,240,1,15.75,Grocery,2,5,0,96.4,99
-P016,165,Zone-E,6,6.34,175,2,11.25,Grocery,3,6,0,94.1,91
-P016,385,Zone-B,6,4.89,175,2,11.25,Grocery,4,6,0,95.3,106
-P017,255,Zone-C,2,5.45,200,3,21.00,Grocery,5,7,1,96.8,110
-P017,420,Zone-A,2,4.12,200,3,21.00,Grocery,6,7,1,95.9,96
-P018,188,Zone-D,7,6.67,165,2,8.75,Grocery,0,8,0,93.7,89
-P018,335,Zone-E,7,5.23,165,2,8.75,Grocery,1,8,0,94.9,102
-P019,270,Zone-B,3,5.89,195,1,13.50,Grocery,2,9,0,96.2,107
-P019,155,Zone-C,3,6.45,195,1,13.50,Grocery,3,9,0,95.1,93
-P020,445,Zone-A,5,4.34,230,2,19.25,Grocery,4,10,0,97.5,112
-P020,290,Zone-D,5,5.56,230,2,19.25,Grocery,5,10,1,96.3,98`,
+    content: `product_id,inventory_level,warehouse_location,aisle_number,picking_time,reorder_point,lead_time_days,unit_price,category,day_of_week,month,is_weekend,demand
+P011,633,Zone-D,9,16.92,146,1,296.33,Grocery,6,1,1,110
+P011,0,Zone-D,9,14.37,146,1,296.33,Grocery,2,2,0,98
+P011,0,Zone-D,9,7.08,146,1,296.33,Grocery,2,3,0,110
+P011,0,Zone-D,9,8.81,146,1,296.33,Grocery,5,4,1,119
+P011,0,Zone-D,9,7.4,146,1,296.33,Grocery,0,5,0,98
+P012,825,Zone-E,5,16.3,137,3,167.01,Grocery,6,1,1,118
+P012,0,Zone-E,5,10.81,137,3,167.01,Grocery,2,2,0,99
+P012,0,Zone-E,5,6.85,137,3,167.01,Grocery,2,3,0,102
+P012,0,Zone-E,5,16.46,137,3,167.01,Grocery,5,4,1,131
+P012,0,Zone-E,5,5.79,137,3,167.01,Grocery,0,5,0,111
+P019,0,Zone-A,17,9.3,70,9,68.52,Grocery,3,6,0,54
+P019,0,Zone-A,17,3.62,70,9,68.52,Grocery,5,7,1,65
+P019,0,Zone-A,17,14.94,70,9,68.52,Grocery,1,8,0,49
+P019,0,Zone-A,17,14.24,70,9,68.52,Grocery,4,9,0,50
+P019,0,Zone-A,17,15.06,70,9,68.52,Grocery,6,10,1,64
+P023,0,Zone-C,14,10.07,85,4,475.82,Grocery,2,11,0,62
+P023,0,Zone-C,14,9.65,85,4,475.82,Grocery,4,12,0,70
+P024,728,Zone-D,3,12.11,108,7,341.55,Grocery,6,1,1,82
+P024,0,Zone-D,3,8.82,108,7,341.55,Grocery,2,2,0,74
+P024,0,Zone-D,3,7.46,108,7,341.55,Grocery,5,3,1,88`,
   },
   {
     name: 'Mixed Categories (No Labels)',
@@ -70,17 +70,17 @@ P020,290,Zone-D,5,5.56,230,2,19.25,Grocery,5,10,1,96.3,98`,
     badge: '🔮 Predictions Only',
     badgeClass: 'badge-no-labels',
     filename: 'test_mixed_no_labels.csv',
-    content: `product_id,inventory_level,warehouse_location,aisle_number,picking_time,reorder_point,lead_time_days,unit_price,category,day_of_week,month,is_weekend,rolling_avg_7d
-P021,145,Zone-A,6,11.20,80,5,320.00,Pharmaceuticals,2,7,0,72.4
-P022,280,Zone-C,3,7.40,100,3,45.00,Apparel,5,12,1,85.6
-P023,92,Zone-B,9,14.10,80,2,780.00,Electronics,6,11,1,78.3
-P024,380,Zone-D,2,4.80,150,4,18.00,Grocery,1,2,0,94.7
-P025,118,Zone-E,7,12.60,80,6,95.00,Automotive,3,5,0,65.2
-P026,210,Zone-A,4,8.30,90,3,210.00,Apparel,4,10,0,81.9
-P027,55,Zone-B,11,17.50,80,1,1200.00,Electronics,0,12,0,68.5
-P028,445,Zone-C,1,5.20,120,5,35.00,Grocery,6,12,1,96.8
-P029,88,Zone-D,8,10.90,80,4,480.00,Pharmaceuticals,2,3,0,74.1
-P030,195,Zone-E,5,9.60,100,3,62.00,Textiles,1,6,0,83.3`,
+    content: `product_id,inventory_level,warehouse_location,aisle_number,picking_time,reorder_point,lead_time_days,unit_price,category,day_of_week,month,is_weekend
+P001,152,Zone-E,15,6.76,132,7,367.34,Tools,6,1,1
+P003,218,Zone-A,2,6.1,115,1,421.8,Apparel,6,1,1
+P007,923,Zone-C,6,11.52,143,9,387.95,Apparel,6,1,1
+P008,595,Zone-C,10,14.89,64,5,280.7,Furniture,6,1,1
+P009,548,Zone-B,19,11.26,100,6,93.71,Apparel,6,1,1
+P014,923,Zone-D,9,13.65,92,5,337.67,Apparel,0,4,0
+P015,274,Zone-E,13,10.27,78,2,143.56,Furniture,2,5,0
+P016,541,Zone-B,4,4.69,89,8,5.46,Furniture,3,6,0
+P018,401,Zone-D,16,14.98,96,8,138.61,Apparel,5,7,1
+P021,591,Zone-B,5,8.82,131,1,109.57,Tools,1,8,0`,
   },
 ]
 

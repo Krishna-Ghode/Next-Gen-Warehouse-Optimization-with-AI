@@ -9,30 +9,6 @@ const getToken = () => localStorage.getItem('token')
 // ── Chatbot module configs ────────────────────────────────────────────────
 const CHAT_MODULES = [
   {
-    id: 'demand',
-    icon: '📊',
-    title: 'Demand Forecasting',
-    desc: 'Predicted demand, forecast accuracy, trend reasons',
-    color: '#2563eb',
-    bg: '#eff6ff',
-    border: '#bfdbfe',
-    systemContext: 'demand_forecasting',
-    suggestions: ['What is the predicted demand?', 'Why is demand high?', 'What is the forecast accuracy?', 'Explain the trend'],
-    welcome: "Hi! I'm your Demand Forecasting assistant 📊\nAsk me about predicted demand, forecast accuracy, trends, or inventory recommendations.",
-  },
-  {
-    id: 'picking',
-    icon: '🗺️',
-    title: 'Warehouse Picking',
-    desc: 'Optimal routes, path reasoning, travel time reduction',
-    color: '#7c3aed',
-    bg: '#faf5ff',
-    border: '#e9d5ff',
-    systemContext: 'warehouse_picking',
-    suggestions: ['What is the optimal route?', 'Why this picking path?', 'How much travel time is saved?', 'Which aisles are visited?'],
-    welcome: "Hi! I'm your Warehouse Picking assistant 🗺️\nAsk me about optimal picking routes, path reasoning, or travel time improvements.",
-  },
-  {
     id: 'cost',
     icon: '📉',
     title: 'Cost Reduction',
@@ -454,8 +430,6 @@ export default function ExplainableAI() {
                     <h2>Company Dashboard</h2>
                     <p>Full access to AI-powered analytics, chatbot modules, KPIs, alerts, and platform insights.</p>
                     <ul className="demo-path-features">
-                      <li>📊 Demand forecasting chatbot</li>
-                      <li>🗺️ Warehouse picking assistant</li>
                       <li>📉 Cost reduction analysis</li>
                       <li>📖 Platform guide & ML explainer</li>
                     </ul>

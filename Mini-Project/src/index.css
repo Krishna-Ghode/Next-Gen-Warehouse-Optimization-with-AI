@@ -7,21 +7,42 @@
 }
 
 :root {
-  --bg-gradient-start: #f0f4ff;
-  --bg-gradient-end: #e8eeff;
-  --card-bg: #ffffff;
-  --card-shadow: 0 4px 20px rgba(59, 130, 246, 0.08);
-  --card-shadow-hover: 0 12px 40px rgba(59, 130, 246, 0.15);
-  --primary: #2563eb;
-  --primary-light: #3b82f6;
-  --primary-dark: #1d4ed8;
-  --accent: #06b6d4;
-  --text: #1e293b;
-  --text-muted: #64748b;
-  --border: rgba(59, 130, 246, 0.2);
-  --radius: 12px;
-  --radius-lg: 16px;
-  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* ── Background ── */
+  --bg-base:           #f7f9f5;
+
+  /* ── Card surfaces ── */
+  --card-bg:           #ffffff;
+  --card-bg-solid:     #ffffff;
+  --card-blur:         blur(0px);
+  --card-shadow:       0 2px 16px rgba(30, 90, 50, 0.07), 0 1px 4px rgba(30,90,50,0.04);
+  --card-shadow-hover: 0 10px 36px rgba(30, 90, 50, 0.13), 0 3px 10px rgba(180,200,60,0.08);
+
+  /* ── Primary — forest green ── */
+  --primary:           #1e8a4a;
+  --primary-light:     #28a85c;
+  --primary-dark:      #166138;
+
+  /* ── Accents ── */
+  --accent:            #8db832;          /* yellow-green  */
+  --accent-warm:       #f5c842;          /* warm amber    */
+  --accent-mint:       #a8d8a8;          /* soft mint     */
+  --accent-sage:       #c8ddb0;          /* sage green    */
+  --accent-peach:      #f9e4c8;          /* warm peach    */
+
+  /* ── Text ── */
+  --text:              #1a2e1a;          /* dark forest   */
+  --text-muted:        #5a7060;
+  --text-soft:         #8fa88f;
+
+  /* ── Borders ── */
+  --border:            rgba(30, 138, 74, 0.13);
+  --border-glow:       rgba(141, 184, 50, 0.35);
+
+  /* ── Radius & transitions ── */
+  --radius:            10px;
+  --radius-lg:         16px;
+  --radius-xl:         24px;
+  --transition:        0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 html {
@@ -30,7 +51,13 @@ html {
 
 body {
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+  /* Exact palette from screenshot: soft mint top-left, warm cream top-right, clean white centre */
+  background:
+    radial-gradient(ellipse 70% 55% at 0%   0%,   rgba(180, 220, 170, 0.55) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 50% at 100% 0%,   rgba(255, 235, 190, 0.55) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 35% at 50%  100%, rgba(200, 230, 180, 0.25) 0%, transparent 70%),
+    #f7f9f5;
+  background-attachment: fixed;
   color: var(--text);
   line-height: 1.6;
   min-height: 100vh;
@@ -62,32 +89,26 @@ textarea {
   font-family: inherit;
 }
 
-/* Utility animations */
+/* ── Utility animations ─────────────────────────────────── */
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0);    }
 }
 
 @keyframes fadeIn {
   from { opacity: 0; }
-  to { opacity: 1; }
+  to   { opacity: 1; }
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
 }
 
-.animate-fade-in-up {
-  animation: fadeInUp 0.6s ease-out forwards;
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.5s ease-out forwards;
-}
+.animate-fade-in-up { animation: fadeInUp 0.6s ease-out forwards; }
+.animate-fade-in    { animation: fadeIn  0.5s ease-out forwards; }

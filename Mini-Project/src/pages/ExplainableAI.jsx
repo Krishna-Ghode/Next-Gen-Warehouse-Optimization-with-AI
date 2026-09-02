@@ -432,6 +432,8 @@ export default function ExplainableAI() {
                     <ul className="demo-path-features">
                       <li>📉 Cost reduction analysis</li>
                       <li>📖 Platform guide & ML explainer</li>
+                      <li>🚚 Live delivery agent tracking</li>
+                      <li>📊 Real-time KPIs & performance metrics</li>
                     </ul>
                     <button className="btn-path btn-path--company" onClick={() => setDemoPath('company')}>
                       Company Login →

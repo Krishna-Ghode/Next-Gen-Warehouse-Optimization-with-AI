@@ -351,7 +351,6 @@ export default function ExplainableAI() {
           liveAgents,
           moduleContext: activeModule.systemContext,
           // Inject live demand stats when the demand module is active
-          // Backend uses these values to generate context-aware responses
           demandContext: activeModule.systemContext === 'demand_forecasting' && dataStats ? {
             accuracy_pct:    dataStats.ml?.accuracy_pct,
             r2:              dataStats.ml?.tuned?.r2,
@@ -365,6 +364,31 @@ export default function ExplainableAI() {
             avg_lead_time:   dataStats.picking?.avg_lead_time,
             total_orders:    dataStats.dataset_rows?.OrderList,
             picking_records: dataStats.dataset_rows?.WarehousePickingData,
+          } : undefined,
+          // Inject live route stats when the picking module is active
+          pickingContext: activeModule.systemContext === 'warehouse_picking' && dataStats ? {
+            total_routes:    dataStats.routes?.total_routes    ?? dataStats.dataset_rows?.PickingRoutes,
+            picking_records: dataStats.dataset_rows?.WarehousePickingData,
+            avg_dist_after:  dataStats.routes?.avg_distance_m,
+            avg_time_after:  dataStats.routes?.avg_time_min,
+            avg_items:       dataStats.routes?.avg_items,
+            avg_stops:       dataStats.routes?.avg_stops,
+            ml_accuracy:     dataStats.ml?.accuracy_pct,
+            total_aisles:    20,
+            zones:           ['Zone-A', 'Zone-B', 'Zone-C', 'Zone-D', 'Zone-E'],
+            aisles_visited:  Math.round(dataStats.routes?.avg_stops ?? 4),
+          } : undefined,
+          // Inject combined context for platform guide (full pipeline)
+          platformContext: activeModule.systemContext === 'platform_guide' && dataStats ? {
+            ml_accuracy:     dataStats.ml?.accuracy_pct,
+            r2:              dataStats.ml?.tuned?.r2,
+            mae:             dataStats.ml?.tuned?.mae,
+            dataset_rows:    dataStats.ml?.dataset_rows,
+            total_orders:    dataStats.dataset_rows?.OrderList,
+            total_routes:    dataStats.routes?.total_routes ?? dataStats.dataset_rows?.PickingRoutes,
+            avg_dist:        dataStats.routes?.avg_distance_m,
+            avg_time:        dataStats.routes?.avg_time_min,
+            avg_demand:      dataStats.picking?.avg_demand,
           } : undefined,
         }),
       })
@@ -667,20 +691,7 @@ export default function ExplainableAI() {
                     }
                   </div>
 
-                  <div className="company-login-hint">
-                    <span>🔑 Demo credentials for quick preview:</span>
-                    <div className="demo-creds">
-                      <span><b>Email:</b> demo@warehouseai.com</span>
-                      <span><b>Password:</b> Demo@1234</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn-use-demo"
-                      onClick={() => setLoginForm({ email: 'demo@warehouseai.com', password: 'Demo@1234' })}
-                    >
-                      ⚡ Use Demo Credentials
-                    </button>
-                  </div>
+                  <div className="company-login-hint">Demo credentials remain available for quick preview.</div>
                   <button className="btn-back-path" style={{ marginTop: '12px' }} onClick={() => { setDemoPath(null); setLoginError(''); setCompanyError(''); setCompanyMessage(''); setCompanyMode('login') }}>← Back</button>
                 </div>
               </div>

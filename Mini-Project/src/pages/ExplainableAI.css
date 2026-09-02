@@ -1255,8 +1255,27 @@
 .company-login-hint {
   font-size: 0.78rem; color: var(--text-muted);
   background: #f0f4ff; border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 8px 12px;
+  border-radius: var(--radius); padding: 10px 14px;
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 4px;
 }
+.company-login-hint > span:first-child {
+  font-weight: 600; color: var(--text); font-size: 0.8rem;
+}
+.demo-creds {
+  display: flex; flex-direction: column; gap: 2px;
+  font-family: 'Courier New', monospace; font-size: 0.8rem;
+  color: #2d5be3; background: #e8eeff;
+  border-radius: 6px; padding: 6px 10px;
+}
+.btn-use-demo {
+  align-self: flex-start;
+  background: #2d5be3; color: #fff;
+  border: none; border-radius: 6px;
+  padding: 5px 12px; font-size: 0.78rem; font-weight: 600;
+  cursor: pointer; transition: background 0.2s;
+}
+.btn-use-demo:hover { background: #1a3fb0; }
 
 /* ── Company dashboard ── */
 .company-dashboard { display: flex; flex-direction: column; gap: 20px; }

@@ -667,7 +667,20 @@ export default function ExplainableAI() {
                     }
                   </div>
 
-                  <div className="company-login-hint">Demo credentials remain available for quick preview.</div>
+                  <div className="company-login-hint">
+                    <span>🔑 Demo credentials for quick preview:</span>
+                    <div className="demo-creds">
+                      <span><b>Email:</b> demo@warehouseai.com</span>
+                      <span><b>Password:</b> Demo@1234</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-use-demo"
+                      onClick={() => setLoginForm({ email: 'demo@warehouseai.com', password: 'Demo@1234' })}
+                    >
+                      ⚡ Use Demo Credentials
+                    </button>
+                  </div>
                   <button className="btn-back-path" style={{ marginTop: '12px' }} onClick={() => { setDemoPath(null); setLoginError(''); setCompanyError(''); setCompanyMessage(''); setCompanyMode('login') }}>← Back</button>
                 </div>
               </div>

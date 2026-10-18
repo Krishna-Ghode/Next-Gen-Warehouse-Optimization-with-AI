@@ -1,161 +1,214 @@
+/**
+ * AdminTracking.jsx  —  Company / Admin Dashboard
+ *
+ * Google Maps integration:
+ *   - Uses useJsApiLoader (via useGoogleMaps hook) instead of <LoadScript>
+ *     so the Maps script is loaded exactly once per SPA session.
+ *   - Uses AdvancedMarkerElement (google.maps.marker.AdvancedMarkerElement)
+ *     instead of the deprecated google.maps.Marker.
+ *   - The map renders independently of Directions API availability.
+ *     A DirectionsService failure shows an inline note, never breaks the map.
+ *
+ * Agent data:
+ *   1. localStorage.live_agents — written by AgentDashboard via GPS
+ *   2. DEMO_AGENTS fallback — clearly labelled when no live agents are present
+ *
+ * Required Google Cloud APIs (same key, enable in Cloud Console):
+ *   • Maps JavaScript API   — map tiles
+ *   • Directions API        — route polylines in AgentDashboard (optional here)
+ */
+
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
+import { GoogleMap, InfoWindow } from '@react-google-maps/api'
+import { useGoogleMaps } from '../hooks/useGoogleMaps'
 import './AdminTracking.css'
 
-const API = 'http://localhost:5000/api'
-const getToken = () => localStorage.getItem('token')
-const GOOGLE_MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY'
+// ── Map constants ─────────────────────────────────────────────────────────────
+const MAP_CONTAINER_STYLE = { width: '100%', height: '460px', borderRadius: '12px' }
+const MAP_DEFAULT_CENTER  = { lat: 21.145, lng: 79.08 }   // Nagpur, Maharashtra
+const MAP_DEFAULT_ZOOM    = 12
+
+// ── Marker pin colours ────────────────────────────────────────────────────────
+// AdvancedMarkerElement uses PinElement with background colours.
+const PIN_COLOR = {
+  'In Progress': '#2563eb',
+  'Delivered':   '#16a34a',
+  'Not Started': '#64748b',
+  'Warehouse':   '#ea580c',
+}
+
+// ── Warehouse locations (match AgentDashboard ASSIGNMENTS) ────────────────────
+const WAREHOUSE_MARKERS = [
+  { id: 'wh_a', name: 'Warehouse A – Nagpur Central', lat: 21.1458, lng: 79.0882 },
+  { id: 'wh_b', name: 'Warehouse B – Hingna Road',    lat: 21.1,    lng: 78.98   },
+  { id: 'wh_c', name: 'Warehouse C – Kamptee Road',   lat: 21.18,   lng: 79.12   },
+]
+
+// ── Demo agents (sample only — labelled clearly) ──────────────────────────────
+const DEMO_AGENTS = [
+  { id: 'agent_001', name: 'Rahul Sharma', lat: 21.148,  lng: 79.091, status: 'In Progress', route: 'Warehouse A → Butibori MIDC', progress: 65,  eta: '12 min', isDemo: true },
+  { id: 'agent_002', name: 'Priya Patel',  lat: 21.102,  lng: 78.983, status: 'Not Started', route: 'Warehouse B → Sadar',         progress: 0,   eta: '—',      isDemo: true },
+  { id: 'agent_003', name: 'Amit Kumar',   lat: 21.181,  lng: 79.122, status: 'Delivered',   route: 'Warehouse C → Dharampeth',    progress: 100, eta: 'Done',   isDemo: true },
+]
 
 const STATUS_COLORS = { 'Not Started': '#64748b', 'In Progress': '#2563eb', 'Delivered': '#16a34a' }
 const STATUS_ICONS  = { 'Not Started': '⚫', 'In Progress': '🔵', 'Delivered': '🟢' }
 
-// Fetch helper — uses manager token for auth
-async function apiFetch(path) {
-  const res = await fetch(`${API}${path}`, {
-    headers: { Authorization: `Bearer ${getToken()}` },
-  })
-  if (!res.ok) throw new Error(`API error ${res.status}`)
-  return res.json()
+// ── Utility: create an AdvancedMarkerElement ──────────────────────────────────
+// Returns the marker instance or null if the API isn't ready.
+function createAdvancedMarker(map, position, title, color, glyphText) {
+  try {
+    const { AdvancedMarkerElement, PinElement } = window.google.maps.marker
+    const pin = new PinElement({
+      background:  color,
+      borderColor: '#ffffff',
+      glyphColor:  '#ffffff',
+      glyph:       glyphText || '',
+      scale:       1.1,
+    })
+    const marker = new AdvancedMarkerElement({
+      map,
+      position,
+      title,
+      content: pin.element,
+    })
+    return marker
+  } catch (e) {
+    // AdvancedMarkerElement unavailable (old API version) — silently skip
+    console.warn('[AdminTracking] AdvancedMarkerElement unavailable:', e.message)
+    return null
+  }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
 export default function AdminTracking() {
-  const mapRef              = useRef(null)
-  const mapInstanceRef      = useRef(null)
-  const markersRef          = useRef({})
-  const infoWindowRef       = useRef(null)
+  const { isLoaded, loadError, hasKey } = useGoogleMaps()
 
-  const [agents,         setAgents]         = useState([])
-  const [stats,          setStats]          = useState({ total: 0, active: 0, completed: 0, pending: 0 })
-  const [filter,         setFilter]         = useState('All')
-  const [selectedAgent,  setSelectedAgent]  = useState(null)
-  const [orderDetail,    setOrderDetail]    = useState(null)   // full detail for selected agent
-  const [loadingDetail,  setLoadingDetail]  = useState(false)
-  const [mapLoaded,      setMapLoaded]      = useState(false)
-  const [mapError,       setMapError]       = useState(false)
-  const [loading,        setLoading]        = useState(true)
-  const [error,          setError]          = useState('')
-  const [lastUpdated,    setLastUpdated]    = useState(null)
+  const [agents,        setAgents]        = useState(DEMO_AGENTS)
+  const [filter,        setFilter]        = useState('All')
+  const [selectedAgent, setSelectedAgent] = useState(null)
+  const [infoAgent,     setInfoAgent]     = useState(null)
+  const [mapInstance,   setMapInstance]   = useState(null)
+  const [isLive,        setIsLive]        = useState(false)
+  const [lastRefresh,   setLastRefresh]   = useState(null)
 
-  // ── Fetch dashboard from backend ─────────────────────────────────────
-  const fetchDashboard = useCallback(async () => {
-    try {
-      const data = await apiFetch('/agent/company/dashboard')
-      setAgents(data.agents)
-      setStats(data.stats)
-      setLastUpdated(new Date())
-      setError('')
-    } catch (err) {
-      setError('Cannot reach backend. Make sure the server is running on port 5000.')
-    } finally {
-      setLoading(false)
+  // Refs to track AdvancedMarker instances so we can update/remove them
+  const markerRefs = useRef({})   // key → AdvancedMarkerElement
+
+  // ── Poll localStorage for live GPS positions every 3 s ────────────────────
+  useEffect(() => {
+    const poll = () => {
+      try {
+        const live = JSON.parse(localStorage.getItem('live_agents') || '{}')
+        if (Object.keys(live).length > 0) {
+          setAgents(DEMO_AGENTS.map(d => live[d.id] ? { ...d, ...live[d.id], isDemo: false } : d))
+          setIsLive(true)
+        } else {
+          setAgents(DEMO_AGENTS)
+          setIsLive(false)
+        }
+        setLastRefresh(new Date())
+      } catch { /* keep state */ }
     }
+    poll()
+    const id = setInterval(poll, 3000)
+    return () => clearInterval(id)
   }, [])
 
-  // Initial fetch + poll every 5 seconds
+  // ── Place / update markers whenever map or agents change ──────────────────
   useEffect(() => {
-    fetchDashboard()
-    const interval = setInterval(fetchDashboard, 5000)
-    return () => clearInterval(interval)
-  }, [fetchDashboard])
+    if (!mapInstance || !isLoaded) return
 
-  // Refresh selected agent detail when agents update
-  useEffect(() => {
-    if (selectedAgent) {
-      const updated = agents.find(a => a.id === selectedAgent.id)
-      if (updated) setSelectedAgent(updated)
-    }
-  }, [agents])
-
-  // ── Load full order detail for selected agent ─────────────────────────
-  const loadOrderDetail = useCallback(async (agentId) => {
-    setLoadingDetail(true)
-    setOrderDetail(null)
-    try {
-      const data = await apiFetch(`/agent/company/order/${agentId}`)
-      setOrderDetail(data)
-    } catch {
-      setOrderDetail(null)
-    } finally {
-      setLoadingDetail(false)
-    }
-  }, [])
-
-  const handleSelectAgent = (agent) => {
-    setSelectedAgent(agent)
-    loadOrderDetail(agent.id)
-    if (mapInstanceRef.current && window.google) {
-      mapInstanceRef.current.panTo({ lat: agent.lat, lng: agent.lng })
-      mapInstanceRef.current.setZoom(14)
-    }
-  }
-
-  // ── Google Maps ───────────────────────────────────────────────────────
-  useEffect(() => {
-    if (window.google?.maps) { setMapLoaded(true); return }
-    const existing = document.getElementById('gmap-script')
-    if (existing) { existing.addEventListener('load', () => setMapLoaded(true)); return }
-    const script = document.createElement('script')
-    script.id = 'gmap-script'
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`
-    script.async = true; script.defer = true
-    script.onload  = () => setMapLoaded(true)
-    script.onerror = () => setMapError(true)
-    document.head.appendChild(script)
-  }, [])
-
-  useEffect(() => {
-    if (!mapLoaded || !mapRef.current) return
-    const google = window.google
-    const map = new google.maps.Map(mapRef.current, {
-      center: { lat: 21.145, lng: 79.08 }, zoom: 12,
-      mapTypeControl: false, streetViewControl: false,
-    })
-    mapInstanceRef.current = map
-    infoWindowRef.current  = new google.maps.InfoWindow()
-  }, [mapLoaded])
-
-  const updateMarkers = useCallback(() => {
-    if (!mapInstanceRef.current || !window.google) return
-    const google = window.google
-    agents.forEach((agent) => {
-      const pos     = { lat: agent.lat, lng: agent.lng }
-      const dotColor = agent.status === 'In Progress' ? 'blue'
-                     : agent.status === 'Delivered'   ? 'green' : 'yellow'
-      const iconUrl  = `https://maps.google.com/mapfiles/ms/icons/${dotColor}-dot.png`
-
-      if (markersRef.current[agent.id]) {
-        markersRef.current[agent.id].setPosition(pos)
-        markersRef.current[agent.id].setIcon({ url: iconUrl })
-      } else {
-        const marker = new google.maps.Marker({
-          position: pos, map: mapInstanceRef.current,
-          title: agent.name, icon: { url: iconUrl },
-        })
-        marker.addListener('click', () => {
-          handleSelectAgent(agent)
-          infoWindowRef.current.setContent(`
-            <div style="padding:8px;min-width:180px">
-              <strong>${agent.name}</strong><br/>
-              <span style="color:${STATUS_COLORS[agent.status]}">${STATUS_ICONS[agent.status]} ${agent.status}</span><br/>
-              <small>${agent.route}</small><br/>
-              <small>ETA: ${agent.eta}</small>
-            </div>
-          `)
-          infoWindowRef.current.open(mapInstanceRef.current, marker)
-        })
-        markersRef.current[agent.id] = marker
+    // Remove markers that no longer exist
+    const currentIds = new Set([
+      ...agents.map(a => a.id),
+      ...WAREHOUSE_MARKERS.map(w => w.id),
+    ])
+    Object.keys(markerRefs.current).forEach(key => {
+      if (!currentIds.has(key)) {
+        if (markerRefs.current[key]) markerRefs.current[key].map = null
+        delete markerRefs.current[key]
       }
     })
-  }, [agents])
 
-  useEffect(() => { updateMarkers() }, [updateMarkers])
+    // Warehouse markers (orange, 🏭)
+    WAREHOUSE_MARKERS.forEach(wh => {
+      if (markerRefs.current[wh.id]) {
+        markerRefs.current[wh.id].position = { lat: wh.lat, lng: wh.lng }
+      } else {
+        const m = createAdvancedMarker(mapInstance, { lat: wh.lat, lng: wh.lng }, wh.name, PIN_COLOR['Warehouse'], '🏭')
+        if (m) {
+          m.addListener('click', () => setInfoAgent({
+            id: wh.id, name: wh.name, lat: wh.lat, lng: wh.lng,
+            status: 'Warehouse', eta: '—', isWarehouse: true,
+          }))
+          markerRefs.current[wh.id] = m
+        }
+      }
+    })
 
+    // Agent markers
+    agents.forEach(agent => {
+      if (markerRefs.current[agent.id]) {
+        markerRefs.current[agent.id].position = { lat: agent.lat, lng: agent.lng }
+      } else {
+        const glyph = agent.status === 'In Progress' ? '🔵' : agent.status === 'Delivered' ? '🟢' : '⚫'
+        const m = createAdvancedMarker(
+          mapInstance,
+          { lat: agent.lat, lng: agent.lng },
+          agent.name,
+          PIN_COLOR[agent.status] || PIN_COLOR['Not Started'],
+          glyph
+        )
+        if (m) {
+          m.addListener('click', () => {
+            setInfoAgent(agent)
+            setSelectedAgent(agent)
+          })
+          markerRefs.current[agent.id] = m
+        }
+      }
+    })
+  }, [mapInstance, isLoaded, agents])
+
+  // ── Pan map to agent when selected from sidebar ───────────────────────────
+  const handleAgentClick = useCallback((agent) => {
+    setSelectedAgent(agent)
+    setInfoAgent(null)
+    if (mapInstance) {
+      mapInstance.panTo({ lat: agent.lat, lng: agent.lng })
+      mapInstance.setZoom(14)
+    }
+  }, [mapInstance])
+
+  const onMapLoad = useCallback(map => setMapInstance(map), [])
+
+  // ── Filter + stats ────────────────────────────────────────────────────────
   const filteredAgents = filter === 'All' ? agents : agents.filter(a => a.status === filter)
+  const stats = {
+    total:     agents.length,
+    active:    agents.filter(a => a.status === 'In Progress').length,
+    completed: agents.filter(a => a.status === 'Delivered').length,
+    pending:   agents.filter(a => a.status === 'Not Started').length,
+  }
 
-  // ── Render ────────────────────────────────────────────────────────────
+  // ── Map ID (required for AdvancedMarkerElement) ───────────────────────────
+  // Use a generic map ID. For production, create one in Google Cloud Console
+  // → Maps → Map Management. Without a valid map ID, AdvancedMarkerElement
+  // falls back gracefully to the plain Marker stub above.
+  const MAP_OPTIONS = {
+    mapTypeControl:    false,
+    streetViewControl: false,
+    fullscreenControl: true,
+    mapId:             'DEMO_MAP_ID',   // replace with a real Map ID for AdvancedMarkers
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div className="admin-track">
-      {/* Header */}
+
+      {/* ── Header ────────────────────────────────────────────────────────── */}
       <div className="admin-header">
         <div className="admin-header-inner">
           <div className="admin-brand">
@@ -164,48 +217,57 @@ export default function AdminTracking() {
               <div className="admin-title">Company Dashboard</div>
               <div className="admin-subtitle">
                 Live Delivery Tracking
-                {lastUpdated && (
-                  <span className="last-updated"> · Updated {lastUpdated.toLocaleTimeString()}</span>
-                )}
+                {isLive
+                  ? <span className="at-live-badge">● LIVE GPS</span>
+                  : <span className="at-demo-badge">◎ Demo Data</span>
+                }
               </div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <button className="btn-back-admin" onClick={fetchDashboard} title="Refresh now">🔄</button>
+          <div className="at-header-right">
+            {lastRefresh && (
+              <span className="at-refresh-time">Refreshed {lastRefresh.toLocaleTimeString()}</span>
+            )}
             <Link to="/route-optimization" className="btn-back-admin">← Back</Link>
           </div>
         </div>
       </div>
 
       <div className="admin-body">
-        {/* Error banner */}
-        {error && (
-          <div className="admin-error-banner">⚠️ {error}</div>
-        )}
 
-        {/* Stats — from backend */}
+        {/* ── Stats cards ───────────────────────────────────────────────────── */}
         <div className="admin-stats">
           {[
-            { label: 'Total',     value: stats.total,     icon: '📦', color: '#2563eb'  },
-            { label: 'Active',    value: stats.active,    icon: '🔵', color: '#2563eb'  },
-            { label: 'Completed', value: stats.completed, icon: '🟢', color: '#16a34a'  },
-            { label: 'Pending',   value: stats.pending,   icon: '⚫', color: '#64748b'  },
-          ].map((s) => (
+            { label: 'Total',     value: stats.total,     icon: '📦', color: '#2563eb' },
+            { label: 'Active',    value: stats.active,    icon: '🔵', color: '#2563eb' },
+            { label: 'Completed', value: stats.completed, icon: '🟢', color: '#16a34a' },
+            { label: 'Pending',   value: stats.pending,   icon: '⚫', color: '#64748b' },
+          ].map(s => (
             <div className="stat-card" key={s.label}>
               <span className="stat-icon">{s.icon}</span>
-              <span className="stat-value" style={{ color: s.color }}>
-                {loading ? '—' : s.value}
-              </span>
+              <span className="stat-value" style={{ color: s.color }}>{s.value}</span>
               <span className="stat-label">{s.label}</span>
             </div>
           ))}
         </div>
 
+        {/* ── Demo data notice ──────────────────────────────────────────────── */}
+        {!isLive && (
+          <div className="at-demo-notice">
+            <span>ℹ️</span>
+            <span>
+              Showing <strong>sample locations</strong> for demonstration — not live GPS.
+              Open the Agent Dashboard on a mobile device to enable real-time tracking.
+            </span>
+          </div>
+        )}
+
         <div className="admin-main">
-          {/* Left: Agent List */}
+
+          {/* ── Left: agent list + filters ────────────────────────────────── */}
           <div className="admin-sidebar">
             <div className="filter-bar">
-              {['All', 'In Progress', 'Not Started', 'Delivered'].map((f) => (
+              {['All', 'In Progress', 'Not Started', 'Delivered'].map(f => (
                 <button
                   key={f}
                   className={`filter-btn ${filter === f ? 'active' : ''}`}
@@ -217,15 +279,11 @@ export default function AdminTracking() {
             </div>
 
             <div className="agent-list">
-              {loading ? (
-                <div className="no-agents">Loading agents…</div>
-              ) : filteredAgents.length === 0 ? (
-                <div className="no-agents">No agents with status "{filter}"</div>
-              ) : filteredAgents.map((agent) => (
+              {filteredAgents.map(agent => (
                 <div
                   key={agent.id}
                   className={`agent-list-card ${selectedAgent?.id === agent.id ? 'selected' : ''}`}
-                  onClick={() => handleSelectAgent(agent)}
+                  onClick={() => handleAgentClick(agent)}
                 >
                   <div className="agent-list-top">
                     <span className="agent-list-name">{agent.name}</span>
@@ -240,229 +298,144 @@ export default function AdminTracking() {
                     </div>
                   )}
                   <div className="agent-list-meta">
-                    <span>{agent.orderId}</span>
+                    <span>ID: {agent.id}</span>
                     <span>ETA: {agent.eta}</span>
+                    {agent.isDemo && <span className="at-demo-tag">sample</span>}
                   </div>
                 </div>
               ))}
+              {filteredAgents.length === 0 && (
+                <div className="no-agents">No agents with status "{filter}"</div>
+              )}
             </div>
           </div>
 
-          {/* Right: Map + Detail */}
+          {/* ── Right: map + detail panel ─────────────────────────────────── */}
           <div className="admin-map-area">
-            {mapError ? (
-              <div className="map-fallback-full">
-                <div className="map-fallback-header-bar">
-                  <span>🗺️ Delivery Location Overview</span>
-                  <span className="map-fallback-badge">Demo Mode — Maps API key required</span>
-                </div>
-                <div className="map-agent-table">
-                  <div className="map-table-head">
-                    <span>Agent</span><span>Status</span><span>Order</span><span>ETA</span><span>Navigate</span>
-                  </div>
-                  {agents.map(agent => {
-                    const order = agent // route/distance come from dashboard API
-                    return (
-                      <div
-                        key={agent.id}
-                        className={`map-table-row ${selectedAgent?.id === agent.id ? 'selected' : ''}`}
-                        onClick={() => handleSelectAgent(agent)}
-                      >
-                        <span className="map-table-name">{agent.name}</span>
-                        <span style={{ color: STATUS_COLORS[agent.status], fontWeight: 600, fontSize: '0.82rem' }}>
-                          {STATUS_ICONS[agent.status]} {agent.status}
-                        </span>
-                        <span className="map-table-order">{agent.orderId}</span>
-                        <span style={{ fontWeight: 700, color: '#2563eb', fontSize: '0.82rem' }}>{agent.eta}</span>
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${agent.lat},${agent.lng}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="map-table-link"
-                          onClick={e => e.stopPropagation()}
-                        >
-                          ↗
-                        </a>
-                      </div>
-                    )
-                  })}
+
+            {/* No API key */}
+            {!hasKey && (
+              <div className="map-placeholder">
+                <div className="map-placeholder-inner">
+                  <span>🗺️</span>
+                  <p>Google Maps API key not configured.</p>
+                  <p className="map-placeholder-hint">
+                    Add <code>VITE_GOOGLE_MAPS_API_KEY=your_key</code> to{' '}
+                    <code>Mini-Project/.env</code> and restart the dev server.
+                  </p>
                 </div>
               </div>
-            ) : (
-              <div ref={mapRef} className="admin-map" />
             )}
 
-            {/* Agent Detail Panel — loaded from backend */}
-            {selectedAgent && (
+            {/* Script load error */}
+            {hasKey && loadError && (
+              <div className="map-placeholder">
+                <div className="map-placeholder-inner">
+                  <span>⚠️</span>
+                  <p>Google Maps failed to load.</p>
+                  <div className="map-placeholder-hint">
+                    <p>Check <strong>DevTools → Console</strong> for the exact error code:</p>
+                    <ul className="at-error-list">
+                      <li><strong>ApiNotActivatedMapError</strong> — Enable <em>Maps JavaScript API</em> in <a href="https://console.cloud.google.com/apis/library/maps-backend.googleapis.com" target="_blank" rel="noreferrer">Google Cloud Console ↗</a></li>
+                      <li><strong>BillingNotEnabledMapError</strong> — Enable billing on the Cloud project</li>
+                      <li><strong>RefererNotAllowedMapError</strong> — Add <code>localhost</code> to the key's allowed HTTP referrers (or remove all restrictions for dev)</li>
+                      <li><strong>InvalidKeyMapError</strong> — Key in <code>Mini-Project/.env</code> is invalid or deleted</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Loading spinner */}
+            {hasKey && !loadError && !isLoaded && (
+              <div className="map-placeholder">
+                <div className="map-placeholder-inner">
+                  <span className="at-map-spinner" />
+                  <p>Loading map…</p>
+                </div>
+              </div>
+            )}
+
+            {/* The actual map — rendered only once isLoaded is true */}
+            {hasKey && !loadError && isLoaded && (
+              <GoogleMap
+                mapContainerStyle={MAP_CONTAINER_STYLE}
+                center={MAP_DEFAULT_CENTER}
+                zoom={MAP_DEFAULT_ZOOM}
+                onLoad={onMapLoad}
+                options={MAP_OPTIONS}
+              >
+                {/* Markers are created imperatively in the useEffect above.
+                    InfoWindow is the only declarative child needed here. */}
+                {infoAgent && (
+                  <InfoWindow
+                    position={{ lat: infoAgent.lat, lng: infoAgent.lng }}
+                    onCloseClick={() => setInfoAgent(null)}
+                  >
+                    <div className="at-info-window">
+                      {infoAgent.isWarehouse ? (
+                        <>
+                          <p className="at-iw-name">🏭 {infoAgent.name}</p>
+                          <p className="at-iw-type">Warehouse Location</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="at-iw-name">🚚 {infoAgent.name}</p>
+                          <p className="at-iw-status" style={{ color: STATUS_COLORS[infoAgent.status] }}>
+                            {STATUS_ICONS[infoAgent.status]} {infoAgent.status}
+                          </p>
+                          <p className="at-iw-route">{infoAgent.route}</p>
+                          <p className="at-iw-eta">ETA: {infoAgent.eta}</p>
+                          {infoAgent.isDemo
+                            ? <p className="at-iw-demo">Sample location — not live GPS</p>
+                            : infoAgent.lastUpdate
+                              ? <p className="at-iw-updated">Updated: {new Date(infoAgent.lastUpdate).toLocaleTimeString()}</p>
+                              : null
+                          }
+                        </>
+                      )}
+                    </div>
+                  </InfoWindow>
+                )}
+              </GoogleMap>
+            )}
+
+            {/* Map legend */}
+            {hasKey && !loadError && isLoaded && (
+              <div className="at-map-legend">
+                <span className="at-legend-item"><span className="at-legend-dot" style={{ background: PIN_COLOR['Warehouse'] }}   />Warehouse</span>
+                <span className="at-legend-item"><span className="at-legend-dot" style={{ background: PIN_COLOR['In Progress'] }} />In Progress</span>
+                <span className="at-legend-item"><span className="at-legend-dot" style={{ background: PIN_COLOR['Delivered'] }}   />Delivered</span>
+                <span className="at-legend-item"><span className="at-legend-dot" style={{ background: PIN_COLOR['Not Started'] }} />Not Started</span>
+              </div>
+            )}
+
+            {/* Agent detail panel */}
+            {selectedAgent && !selectedAgent.isWarehouse && (
               <div className="agent-detail-panel">
                 <div className="agent-detail-header">
                   <span className="agent-detail-name">{selectedAgent.name}</span>
-                  <button className="agent-detail-close" onClick={() => { setSelectedAgent(null); setOrderDetail(null) }}>✕</button>
+                  <button className="agent-detail-close" onClick={() => { setSelectedAgent(null); setInfoAgent(null) }}>✕</button>
                 </div>
-
-                {loadingDetail ? (
-                  <div className="agent-detail-body">
-                    <p style={{ color: '#64748b', fontSize: '0.85rem' }}>Loading order details…</p>
-                  </div>
-                ) : orderDetail ? (
-                  <div className="agent-detail-body">
-                    {/* Status */}
-                    <div className="detail-row">
-                      <span>Status</span>
-                      <span style={{ color: STATUS_COLORS[orderDetail.status], fontWeight: 700 }}>
-                        {STATUS_ICONS[orderDetail.status]} {orderDetail.status}
-                      </span>
+                <div className="agent-detail-body">
+                  {[
+                    { label: 'Status',   value: <span style={{ color: STATUS_COLORS[selectedAgent.status], fontWeight: 700 }}>{STATUS_ICONS[selectedAgent.status]} {selectedAgent.status}</span> },
+                    { label: 'Route',    value: selectedAgent.route },
+                    { label: 'Progress', value: `${selectedAgent.progress}%` },
+                    { label: 'ETA',      value: selectedAgent.eta },
+                    { label: 'Location', value: `${selectedAgent.lat.toFixed(4)}, ${selectedAgent.lng.toFixed(4)}` },
+                    { label: 'Data',     value: selectedAgent.isDemo ? '⚠️ Sample location' : '✅ Live GPS' },
+                  ].map(row => (
+                    <div className="detail-row" key={row.label}>
+                      <span>{row.label}</span>
+                      <span>{row.value}</span>
                     </div>
-
-                    {/* Order */}
-                    <div className="detail-row">
-                      <span>Order ID</span>
-                      <span>{orderDetail.order?.orderId}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span>Item</span>
-                      <span>{orderDetail.order?.item} (×{orderDetail.order?.quantity})</span>
-                    </div>
-                    <div className="detail-row">
-                      <span>Priority</span>
-                      <span style={{ color: orderDetail.order?.priority === 'Critical' ? '#dc2626' : orderDetail.order?.priority === 'High' ? '#d97706' : '#16a34a' }}>
-                        {orderDetail.order?.priority}
-                      </span>
-                    </div>
-
-                    {/* Route */}
-                    <div className="detail-row">
-                      <span>From</span>
-                      <span>{orderDetail.order?.warehouse?.name}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span>To</span>
-                      <span>{orderDetail.order?.customer?.address}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span>Route</span>
-                      <span>{orderDetail.order?.route}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span>Distance</span>
-                      <span>{orderDetail.order?.distance}</span>
-                    </div>
-
-                    {/* ETA & Progress */}
-                    <div className="detail-row">
-                      <span>ETA</span>
-                      <span style={{ color: '#2563eb', fontWeight: 700 }}>{orderDetail.eta}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span>Progress</span>
-                      <span>{orderDetail.progress}%</span>
-                    </div>
-                    {/* Mini progress bar */}
-                    <div className="detail-progress-bar">
-                      <div className="detail-progress-fill" style={{ width: `${orderDetail.progress}%` }} />
-                    </div>
-
-                    {/* Delivery Timeline */}
-                    <div className="detail-section-title">📋 Delivery Timeline</div>
-                    <div className="detail-timeline">
-                      {['Order Assigned', 'Picked Up', 'On The Way', 'Delivered'].map((stage, i) => {
-                        const stageIdx = orderDetail.status === 'Not Started' ? 0
-                                       : orderDetail.status === 'In Progress'  ? 2
-                                       : 3
-                        const done   = i <= stageIdx
-                        const active = i === stageIdx && orderDetail.status !== 'Delivered'
-                        return (
-                          <div key={stage} className={`dtl-step ${done ? 'dtl-done' : ''} ${active ? 'dtl-active' : ''}`}>
-                            <div className="dtl-dot">{done && !active ? '✓' : active ? '●' : '○'}</div>
-                            <div className="dtl-label">{stage}</div>
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                    {/* Customer */}
-                    <div className="detail-row">
-                      <span>Customer</span>
-                      <span>{orderDetail.order?.customer?.name}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span>Cust. Phone</span>
-                      <span>{orderDetail.order?.customer?.phone}</span>
-                    </div>
-
-                    {/* AI Insight */}
-                    {orderDetail.ai && (
-                      <>
-                        <div className="detail-section-title">🤖 AI Insight</div>
-                        <div className="detail-row">
-                          <span>Traffic</span>
-                          <span style={{ color: orderDetail.ai.traffic === 'Moderate' ? '#d97706' : '#16a34a' }}>
-                            {orderDetail.ai.traffic}
-                          </span>
-                        </div>
-                        <div className="detail-row">
-                          <span>Suggested Route</span>
-                          <span>{orderDetail.ai.route}</span>
-                        </div>
-                        <div className="detail-row">
-                          <span>Time Saved</span>
-                          <span style={{ color: '#16a34a' }}>{orderDetail.ai.timeSaved}</span>
-                        </div>
-                        <div className="detail-row">
-                          <span>Confidence</span>
-                          <span style={{ color: '#2563eb' }}>{orderDetail.ai.confidence}</span>
-                        </div>
-                        <div className="detail-ai-note">{orderDetail.ai.note}</div>
-                      </>
-                    )}
-
-                    {/* Proof of Delivery */}
-                    {orderDetail.proof && (
-                      <>
-                        <div className="detail-section-title">📸 Proof of Delivery</div>
-                        {orderDetail.proof.photo && (
-                          <img src={orderDetail.proof.photo} alt="Proof" className="detail-proof-photo" />
-                        )}
-                        {orderDetail.proof.notes && (
-                          <div className="detail-row">
-                            <span>Notes</span>
-                            <span>{orderDetail.proof.notes}</span>
-                          </div>
-                        )}
-                        <div className="detail-row">
-                          <span>Submitted</span>
-                          <span>{new Date(orderDetail.proof.timestamp).toLocaleString()}</span>
-                        </div>
-                      </>
-                    )}
-
-                    {/* Open in Maps */}
-                    {orderDetail.order && (
-                      <a
-                        href={`https://www.google.com/maps/dir/?api=1&origin=${orderDetail.order.warehouseLat},${orderDetail.order.warehouseLng}&destination=${orderDetail.order.customerLat},${orderDetail.order.customerLng}&travelmode=driving`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="detail-maps-btn"
-                      >
-                        🗺️ Open Route in Google Maps ↗
-                      </a>
-                    )}
-                  </div>
-                ) : (
-                  <div className="agent-detail-body">
-                    <div className="detail-row">
-                      <span>Status</span>
-                      <span style={{ color: STATUS_COLORS[selectedAgent.status], fontWeight: 700 }}>
-                        {STATUS_ICONS[selectedAgent.status]} {selectedAgent.status}
-                      </span>
-                    </div>
-                    <div className="detail-row"><span>ETA</span><span>{selectedAgent.eta}</span></div>
-                    <div className="detail-row"><span>Route</span><span>{selectedAgent.route}</span></div>
-                  </div>
-                )}
+                  ))}
+                </div>
               </div>
             )}
           </div>
+
         </div>
       </div>
     </div>
